@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================================
+// 1. AUTHENTICATION & USERS
+// ==========================================
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  passwordHash      String?   
+  name              String?
+  role              Role      @default(PATIENT)
+  
+  emailVerified     Boolean   @default(false)
+  authProvider      String    @default("credentials") 
+  activationToken   String?   @unique
+  activationExpires DateTime?
+  
+  sentMessages      Message[] @relation("SentMessages")
+  receivedMessages  Message[] @relation("ReceivedMessages")
+  
+  patientProfile    Patient?
+  doctorProfile     Doctor?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+// ==========================================
+// 2. PROFILES
+// ==========================================
+
+model Patient {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  phone        String?
+  address      String?
+  dateOfBirth  DateTime?
+  profileImage String?  // 🔥 ADDED THIS
+  
+  appointments Appointment[]
+  healthRecords HealthRecord[]
+}
+
+model Doctor {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  specialization String
+  experience     Int      @default(0)
+  rating         Float    @default(0.0)
+  reviewCount    Int      @default(0)
+  consultationFee Float   @default(0.0)
+  profileImage   String?  // 🔥 ADDED THIS
+  
+  appointments   Appointment[]
+}
+
+// ==========================================
+// 3. LIVE CHAT MESSAGES
+// ==========================================
+
+model Message {
+  id          String   @id @default(cuid())
+  content     String
+  senderId    String
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId  String
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// ==========================================
+// 4. APPOINTMENTS & HEALTH RECORDS
+// ==========================================
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model Appointment {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId    String
+  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  date        DateTime
+  timeSlot    String
+  status      AppointmentStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum RecordType {
+  BLOOD_TEST
+  X_RAY
+  PRESCRIPTION
+  MRI
+  OTHER
+}
+
+model HealthRecord {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  title       String
+  type        RecordType @default(OTHER)
+  fileUrl     String
+  recordDate  DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
